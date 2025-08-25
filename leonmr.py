@@ -1656,7 +1656,7 @@ def xf2_peak_pick(expt_parameters, prominence = [0.001, 1], peak_pos = [], int_r
     
     return peak_intensity
 
-def diff_plot(peak_ints_norm, datapath, NUC):
+def diff_plot(peak_ints_norm, datapath, NUC, TD2):
     """
     Diffusion plotting function, uses data read from the xf2 function
     G, grad_params = diff_plot(peak_ints_norm, datapath, NUC)
@@ -1664,14 +1664,17 @@ def diff_plot(peak_ints_norm, datapath, NUC):
     grad_params = diff_params_import(datapath, NUC)
     # print(delta,DELTA,expD,G, gamma)
     fig2,ax2 = plt.subplots()
-    lines = plt.plot(grad_params["gradient"],peak_ints_norm, 'o')#, c='red', mfc='blue', mec='blue')
+    lines = plt.plot(grad_params["gradient"][:int(TD2)],peak_ints_norm[:int(TD2)], 'o')#, c='red', mfc='blue', mec='blue')
     ax2.set_xlabel("Gradient Strength / G cm$\mathregular{^{-1}}$")
     ax2.set_ylabel("Normalized Intensity")
     # grad_params = {"delta": delta, "DELTA": DELTA, "gamma": gamma, "expD":expD}
     return grad_params
 
-def diffusion_read_plot(datapath, procno=1, xmin=0,xmax=0,prominence=0.005, plottype="exp",norm=False, peak_pos=float("NaN"), int_range = []):
-    xAxppm, real_spectrum, expt_parameters = xf2(datapath, procno=procno, xmin=xmin, xmax=xmax)
+def diffusion_read_plot(datapath, procno=1, xmin=0,xmax=0,prominence=0.005, plottype="exp",norm=False, peak_pos=[], int_range = []):
+    xf2_results = xf2(datapath, procno=procno, xmin=xmin, xmax=xmax)
+    # expt_parameters = {"x_ppm":xAxppm, "spectrum": real_spectrum, 'NUC': NUC, "L":L, "L1": L1, "L2":L2, "CNST31": CNST31, "TD_2": TD_2}
+    xAxppm = xf2_results["x_ppm"]
+    real_spectrum = xf2_results["spectrum"]
     
     if int_range != []:
         i1 = np.where(xAxppm<=int_range[0])[0][0]
@@ -1684,10 +1687,13 @@ def diffusion_read_plot(datapath, procno=1, xmin=0,xmax=0,prominence=0.005, plot
         peak_ints = [np.trapz(yy[i1:i2], dx = xAxppm[0:1]) for yy in real_spectrum]
         peak_ints = np.divide(peak_ints,peak_ints[0])
         peaklist = [int_range]
-        grad_params = diff_plot(peak_ints, datapath, expt_parameters["NUC"], TD2=expt_parameters["TD_2"],plottype=plottype)
+        grad_params = diff_plot(peak_ints, datapath, xf2_results["NUC"], TD2=xf2_results["TD_2"])
         return peak_ints, peaklist, grad_params
     else:
-        peak_ints, peaklist = xf2_peak_pick(xAxppm, real_spectrum,prominence=prominence,norm=norm, peak_pos=peak_pos, plottype=plottype)
+        peak_ints = xf2_peak_pick(xf2_results,prominence=prominence, peak_pos=peak_pos, normalization='first')
+        # (expt_parameters, prominence = [0.001, 1], peak_pos = [], int_range = [], normalization = 'last', xlims = []):
+        print(peak_ints.columns.values)
+        peaklist = peak_ints.columns.values
         peak_ints = np.array(peak_ints)
         if np.shape(peak_ints)[1] > 25:
             print("Too many peaks found, check prominence parameter and processing then retry.")
@@ -1696,7 +1702,7 @@ def diffusion_read_plot(datapath, procno=1, xmin=0,xmax=0,prominence=0.005, plot
         else:
             switch = 1
         if switch:
-            grad_params = diff_plot(peak_ints, datapath, expt_parameters["NUC"], TD2=expt_parameters["TD_2"],plottype=plottype)
+            grad_params = diff_plot(peak_ints, datapath, xf2_results["NUC"], TD2=xf2_results["TD_2"])
             return peak_ints, peaklist, grad_params
         else:
             return
