@@ -17,6 +17,7 @@ import matplotlib.colors as mcolors
 import matplotlib.colors as cl
 import matplotlib.cm as cmx
 import matplotlib.ticker as ticker
+import re
 
 # Plot parameters
 fsize = 28
@@ -120,7 +121,7 @@ def NMR1Dimport(datapath, procno=1, mass=1, xmin=0, xmax=0):
                 NS = float(linestr[len(NSstr):len(linestr)-1])
             if NUCstr in line.decode():
                 linestr = line.decode()
-                NUC = str(linestr[len(NUCstr):len(linestr)-2])
+                NUC = re.search(r'<(.*?)>', linestr).group(1)
             if ~np.isnan(O1) and ~np.isnan(OBS) and ~np.isnan(NS) and not len(NUC)==0:
                 break
 
@@ -601,7 +602,7 @@ def NMR2D(datapath, procno = 1, xmin=0, xmax=0, ymin=0, ymax=0, factor = 0.02, c
                 OBS = float(linestr[len(OBSstr):len(linestr)-1])
             if NUCstr in line.decode():
                 linestr = line.decode()
-                NUC = str(linestr[len(NUCstr):len(linestr)-2])
+                NUC = re.search(r'<(.*?)>', linestr).group(1)
             if ~np.isnan(SW) and ~np.isnan(O1) and ~np.isnan(OBS) and not len(NUC)==0:
                 break
 
@@ -663,7 +664,7 @@ def NMR2D(datapath, procno = 1, xmin=0, xmax=0, ymin=0, ymax=0, factor = 0.02, c
                 OBS_2 = float(linestr[len(OBSstr_2):len(linestr)-1])
             if NUCstr_2 in line.decode():
                 linestr = line.decode()
-                NUC_2 = str(linestr[len(NUCstr_2):len(linestr)-2])
+                NUC_2 = re.search(r'<(.*?)>', linestr).group(1)
             if ~np.isnan(SW_2) and ~np.isnan(O1_2) and ~np.isnan(OBS_2) and not len(NUC_2)==0:
                 break
 
@@ -1353,7 +1354,7 @@ def xf2(datapath, procno=1, mass=1, xmin=0, xmax=0):
     # Get aqcus
     O1str = '##$O1= '
     OBSstr = '##$BF1= '
-    NUCstr = '##$NUC1= <'
+    NUCstr = '##$NUC1= '
     Lstr = "##$L= (0..31)"
     CNSTstr = "##$CNST= (0..63)"
     TDstr = "##$TD= "
@@ -1377,7 +1378,7 @@ def xf2(datapath, procno=1, mass=1, xmin=0, xmax=0):
                 OBS = float(linestr[len(OBSstr):len(linestr)-1])
             if NUCstr in line.decode():
                 linestr = line.decode()
-                NUC = str(linestr[len(NUCstr):len(linestr)-2])
+                NUC = re.search(r'<(.*?)>', linestr).group(1)
             if TDstr in line.decode():
                 linestr = line.decode()
                 TD = float(linestr.strip(TDstr))
@@ -1675,7 +1676,7 @@ def diffusion_read_plot(datapath, procno=1, xmin=0,xmax=0,prominence=0.005, plot
     # expt_parameters = {"x_ppm":xAxppm, "spectrum": real_spectrum, 'NUC': NUC, "L":L, "L1": L1, "L2":L2, "CNST31": CNST31, "TD_2": TD_2}
     xAxppm = xf2_results["x_ppm"]
     real_spectrum = xf2_results["spectrum"]
-    
+    print(xf2_results["NUC"])
     if int_range != []:
         i1 = np.where(xAxppm<=int_range[0])[0][0]
         i2 = np.where(xAxppm<=int_range[1])[0][0]
@@ -2106,7 +2107,7 @@ def DiffFit(y, grad_params, expD = [1.00001243e-10], stretch=[False], annotation
     }
     return fit_results
 
-def diffprof(datapath, procno=1, mass=1, x1=0, x2=0, probe='diffBB', GPZ = [], plheight=8, plwidth=8):
+def diffprof(datapath, procno=1, mass=1, xmin=0, xmax=0, probe='diffBB', GPZ = [], plheight=8, plwidth=8):
 
     """
     results = diffprof(datapath, procno=1, mass=1, x1=0, x2=0, probe='diffBB', GPZ = [], plheight=8, plwidth=8)
@@ -2174,7 +2175,7 @@ def diffprof(datapath, procno=1, mass=1, x1=0, x2=0, probe='diffBB', GPZ = [], p
                 NS = float(linestr[len(NSstr):len(linestr)-1])
             if NUCstr in line.decode():
                 linestr = line.decode()
-                NUC = str(linestr[len(NUCstr):len(linestr)-2])
+                NUC = re.search(r'<(.*?)>', linestr).group(1)
             if Gstr in line.decode():
                 line = next(input)
                 linestr = line.decode()
@@ -2221,19 +2222,19 @@ def diffprof(datapath, procno=1, mass=1, x1=0, x2=0, probe='diffBB', GPZ = [], p
     # Determine x axis values
     SR = (SF-OBS)*1000000
     true_centre = O1-SR
-    xmin = true_centre-SW/2
-    xmax = true_centre+SW/2
-    xAxHz = np.linspace(xmax,xmin,num=int(SI))
+    xaxmin = true_centre-SW/2
+    xaxmax = true_centre+SW/2
+    xAxHz = np.linspace(xaxmax,xaxmin,num=int(SI))
     xAxppm = xAxHz/SF
     xAxmm = np.divide(xAxHz,gamma*(maxgrad/100)*(GPZ1/100)*(1/1000))
     real_spectrum = real_spectrum*2**NC_proc
 
-    if x1 == 0 and x2 == 0:
+    if xmin == 0 and xmax == 0:
         print("Using default limits.")
         x1_temp = max(xAxppm)
         x2_temp = min(xAxppm)
-        x1 = np.argmax(xAxppm<=x2_temp)
-        x2 = np.argmax(xAxppm<=x1_temp)
+        xmin = np.argmax(xAxppm<=x2_temp)
+        xmax = np.argmax(xAxppm<=x1_temp)
         
     real_spectrum_norm = real_spectrum.copy()
     real_spectrum_norm -= min(real_spectrum_norm)
@@ -2249,7 +2250,7 @@ def diffprof(datapath, procno=1, mass=1, x1=0, x2=0, probe='diffBB', GPZ = [], p
     ax.spines['right'].set_visible(frame)
     ax.spines['left'].set_visible(frame)
     plt.yticks([])
-    ax.set_xlim(x1, x2)
+    ax.set_xlim(xmin, xmax)
     ax.set_ylim(-0.05, 1.1)
     fig.set_figheight(plheight)
     fig.set_figwidth(plwidth)
@@ -2258,6 +2259,493 @@ def diffprof(datapath, procno=1, mass=1, x1=0, x2=0, probe='diffBB', GPZ = [], p
                'nuclide':NUC, 'BF1':OBS, 'SFO1':SF}
     
     return results
+
+def diffprof_2d(datapath, procno=1, mass=1, xmin=0, xmax=0, probe='diffBB', GPZ = [], plheight=8, plwidth=8):
+    """
+    results = NMR1Dimport(datapath, procno=1, mass=1, f1p=0, f2p=0)
+    results = {'x_ppm':xAxppm, 'x_Hz':xAxHz, 'spectrum':real_spectrum, 'normalized_spectrum':real_spectrum_norm, 
+               'nuclide':NUC, 'BF1':OBS, 'SFO1':SF}
+
+    Function to import 1D NMR data from raw Bruker files. 
+    
+    datapath: top-level experiment folder containing the 2D NMR data
+    procno: process number of data to be plotted (default = 1)
+    mass: mass of sample for comparison to others (default = 1)
+    f1p/f2p: left and right limits of x-axis, order agnostic
+    """
+    if probe == "diffBB":
+        maxgrad = 1702.4136387358437
+        print("Probe: DiffBB. Maximum gradient strength = 1702.4 G/cm")
+    elif probe == "diff50":
+        maxgrad = 2897.6124790318013
+        print("Probe: Diff50. Maximum gradient strength = 2897.6 G/cm")
+    else:
+        maxgrad = 1702.4136387358437
+        print('Assuming diffBB probe. If incorrect, run again specifing probe.')
+
+    real_spectrum_path = os.path.join(datapath,"pdata",str(procno),"2rr")
+    procs = os.path.join(datapath,"pdata",str(procno),"procs")
+    acqus = os.path.join(datapath,"acqus")
+    proc2s = os.path.join(datapath,"pdata",str(procno),"proc2s")
+    acqu2s = os.path.join(datapath,"acqu2s")
+
+    ########################################################################
+
+    # Bruker file format information
+    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    # Bruker binary files (ser/fid) store data as an array of numbers whose
+    # endianness is determined by the parameter BYTORDA (1 = big endian, 0 = little
+    # endian), and whose data type is determined by the parameter DTYPA (0 = int32,
+    # 2 = float64). Typically the direct dimension is digitally filtered. The exact
+    # method of removing this filter is unknown but an approximation is available.
+    # Bruker JCAMP-DX files (acqus, etc) are text file which are described by the
+    # `JCAMP-DX standard <http://www.jcamp-dx.org/>`_.  Bruker parameters are
+    # prefixed with a '$'.
+
+    ####################################
+    # Lstr = "##$L= (0..31)"
+    # CNSTstr = "##$CNST= (0..63)"
+    # TDstr = "##$TD= "
+
+    # O1 = float("NaN")
+    # OBS = float("NaN")
+    # NUC = ""
+    # L1 = float("NaN")
+    # L2 = float("NaN")
+    # CNST31 = float("NaN")
+    # TD = float("NaN")
+
+    # with open(acqus,"rb") as input:
+    #     for line in input:
+    # #         print(line.decode())
+    #         if O1str in line.decode():
+    #             linestr = line.decode()
+    #             O1 = float(linestr[len(O1str):len(linestr)-1])
+    #         if OBSstr in line.decode():
+    #             linestr = line.decode()
+    #             OBS = float(linestr[len(OBSstr):len(linestr)-1])
+    #         if NUCstr in line.decode():
+    #             linestr = line.decode()
+    #             NUC = re.search(r'<(.*?)>', linestr).group(1)
+    #         if TDstr in line.decode():
+    #             linestr = line.decode()
+    #             TD = float(linestr.strip(TDstr))
+    #         if Lstr in line.decode():
+    #             line = next(input)
+    #             linestr = line.decode()
+    #             L = (linestr.strip("\n").split(" "))
+    #             L1 = float(L[1])
+    #             L2 = float(L[2])
+    #         if CNSTstr in line.decode():
+    #             CNST = []
+    #             line = next(input)
+    #             while "##$CPDPRG=" not in str(line):
+    #                 linestr = line.decode()
+    #                 CNST.extend(linestr.strip("\n").split(" "))
+    #                 line = next(input)
+    #             CNST31 = float(CNST[31])
+    # Get aqcus
+    O1str = '##$O1= '
+    OBSstr = '##$BF1= '
+    NSstr = '##$NS= '
+    NUCstr = '##$NUC1= <'
+    Gstr = '##$GPZ= (0..31)'
+    Lstr = "##$L= (0..31)"
+    CNSTstr = "##$CNST= (0..63)"
+
+    O1 = float("NaN")
+    OBS = float("NaN")
+    NS = float("NaN")
+    GPZ1 = float("NaN")
+    L1 = float("NaN")
+    L2 = float("NaN")
+    CNST31 = float("NaN")
+    NUC = ""
+    L = []
+    CNST = []
+
+    with open(acqus,"rb") as input:
+        for line in input:
+            if O1str in line.decode():
+                linestr = line.decode()
+                O1 = float(linestr[len(O1str):len(linestr)-1])
+            if OBSstr in line.decode():
+                linestr = line.decode()
+                OBS = float(linestr[len(OBSstr):len(linestr)-1])
+            if NSstr in line.decode():
+                linestr = line.decode()
+                NS = float(linestr[len(NSstr):len(linestr)-1])
+            if NUCstr in line.decode():
+                linestr = line.decode()
+                NUC = re.search(r'<(.*?)>', linestr).group(1)
+            if Gstr in line.decode():
+                line = next(input)
+                linestr = line.decode()
+                G = (linestr.strip("\n").split(" "))
+                GPZ1 = float(G[1])
+            if Lstr in line.decode():
+                line = next(input)
+                linestr = line.decode()
+                L = (linestr.strip("\n").split(" "))
+                L1 = float(L[1])
+                L2 = float(L[2])
+            if CNSTstr in line.decode():
+                CNST = []
+                line = next(input)
+                while "##$CPDPRG=" not in str(line):
+                    linestr = line.decode()
+                    CNST.extend(linestr.strip("\n").split(" "))
+                    line = next(input)
+                CNST31 = float(CNST[31])
+                
+            if ~np.isnan(O1) and ~np.isnan(OBS) and ~np.isnan(NS) and ~np.isnan(GPZ1) and ~np.isnan(L1) and ~np.isnan(CNST31) and not len(NUC)==0:
+                break
+
+    # Get procs
+
+    SWstr = '##$SW_p= '
+    SIstr = '##$SI= '
+    SFstr = '##$SF= '
+    NCstr = '##$NC_proc= '
+    XDIM_F2str = '##$XDIM= '
+    
+    SW = float("NaN")
+    SI = float("NaN")
+    SF = float("NaN")
+    NC_proc = float("NaN")
+    XDIM_F2 = int(0)
+
+    with open(procs,"rb") as input:
+        for line in input:
+            if SWstr in line.decode():
+                linestr = line.decode()
+                SW = float(linestr[len(SWstr):len(linestr)-1])
+            if SIstr in line.decode():
+                linestr = line.decode()
+                SI = float(linestr[len(SIstr):len(linestr)-1])
+            if SFstr in line.decode():
+                linestr = line.decode()
+                SF = float(linestr[len(SFstr):len(linestr)-1])
+            if NCstr in line.decode():
+                linestr = line.decode()
+                NC_proc = float(linestr[len(NCstr):len(linestr)-1])
+            if XDIM_F2str in line.decode():
+                linestr = line.decode()
+                XDIM_F2 = int(linestr[len(XDIM_F2str):len(linestr)-1])
+            if ~np.isnan(SW) and ~np.isnan(SI) and ~np.isnan(NC_proc) and ~np.isnan(SF) and XDIM_F2!=int(0):
+                break
+
+    nucgamma = find_gamma(NUC)
+    gamma = float(nucgamma['gamma'])
+
+    if GPZ != []:
+        GPZ1 = GPZ
+
+    ####################################
+
+    # Get aqcu2s for indirect dimension
+    O1str_2 = '##$O1= '
+    OBSstr_2 = '##$BF1= '
+    NUCstr_2 = '##$NUC1= <'
+    TDstr_2 = "##$TD= "
+
+    O1_2 = float("NaN")
+    OBS_2 = float("NaN")
+    NUC_2 = ""
+    TD_2 = float("NaN")
+
+    with open(acqu2s,"rb") as input:
+        for line in input:
+    #         print(line.decode())
+            if O1str_2 in line.decode():
+                linestr = line.decode()
+                O1_2 = float(linestr[len(O1str_2):len(linestr)-1])
+            if OBSstr_2 in line.decode():
+                linestr = line.decode()
+                OBS_2 = float(linestr[len(OBSstr_2):len(linestr)-1])
+            if NUCstr_2 in line.decode():
+                linestr = line.decode()
+                NUC_2 = str(linestr[len(NUCstr_2):len(linestr)-2])
+            if TDstr_2 in line.decode():
+                linestr = line.decode()
+                TD_2  = float(linestr.strip(TDstr_2))
+            if ~np.isnan(O1_2) and ~np.isnan(OBS_2) and ~np.isnan(TD_2) and not len(NUC_2)==0:
+                break
+
+    ####################################
+
+    # # Get proc2s for indirect dimension
+
+    SIstr_2 = '##$SI= '
+    XDIM_F1str = '##$XDIM= '
+
+    SI_2 = float("NaN")
+    XDIM_F1 = int(0)
+
+    with open(proc2s,"rb") as input:
+        for line in input:
+            if SIstr_2 in line.decode():
+                linestr = line.decode()
+                SI_2 = float(linestr[len(SIstr_2):len(linestr)-1])
+            if XDIM_F1str in line.decode():
+                linestr = line.decode()
+                XDIM_F1 = int(linestr[len(XDIM_F1str):len(linestr)-1])
+            if ~np.isnan(SI_2) and XDIM_F1!=int(0):
+                break
+
+    ####################################    
+    
+    # Determine x axis values
+    SR = (SF-OBS)*1000000
+    true_centre = O1-SR
+    xaxmin = true_centre-SW/2
+    xaxmax = true_centre+SW/2
+    xAxHz = np.linspace(xaxmax,xaxmin,num=int(SI))
+    xAxppm = xAxHz/SF
+    xAxmm = np.divide(xAxHz,gamma*(maxgrad/100)*(GPZ1/100)*(1/1000))
+    
+    real_spectrum = np.fromfile(real_spectrum_path, dtype='<i4', count=-1)
+    real_spectrum = real_spectrum.reshape([int(SI_2),int(SI)])
+
+    if XDIM_F1 == 1:
+        real_spectrum = real_spectrum.reshape([int(SI_2),int(SI)])
+    else:
+        # to shape the column matrix according to Bruker's format, matrices are broken into (XDIM_F1,XDIM_F2) submatrices, so reshaping where XDIM_F1!=1 requires this procedure.
+        column_matrix = real_spectrum
+        submatrix_rows = int(SI_2 // XDIM_F1)
+        submatrix_cols = int(SI // XDIM_F2)
+        submatrix_number = submatrix_cols*submatrix_rows
+
+        blocks = np.array(np.array_split(column_matrix,submatrix_number))  # Split into submatrices
+        blocks = np.reshape(blocks,(submatrix_rows,submatrix_cols,-1)) # Reshape these submatrices so each has its own 1D array
+        real_spectrum = np.vstack([np.hstack([np.reshape(c, (XDIM_F1, XDIM_F2)) for c in b]) for b in blocks])  # Concatenate submatrices in the correct orientation
+
+    if xmin == 0 and xmax == 0:
+        print("Using default limits.")
+        x1_temp = max(xAxppm)
+        x2_temp = min(xAxppm)
+        xmin = np.argmax(xAxppm<x2_temp)
+        xmax = np.argmax(xAxppm<x1_temp)
+        
+    real_spectrum_norm = real_spectrum.copy()
+
+    real_spectrum_norm = np.interp(real_spectrum_norm, (real_spectrum_norm.min(), real_spectrum_norm.max()), (0, +1))
+    real_spectrum = real_spectrum/mass/NS
+
+    gradient_strength = GPZ1/100*maxgrad/100 # T/m
+
+    results = {'x_ppm':xAxppm, 'x_Hz':xAxHz, 'x_mm':xAxmm, 'spectrum':real_spectrum, 'normalized_spectrum':real_spectrum_norm, 
+               'nuclide':NUC, 'BF1':OBS, 'SFO1':SF, "TD_2": TD_2, "G": gradient_strength, "L":L, "CNST":CNST}
+    
+    return results
+
+def diffprof_exchange(datapath, coilpath, xmin=-6, xmax=6):
+
+    results = diffprof_2d(datapath, procno=1, mass=1, xmin=xmin, xmax=xmax, probe='diff50', GPZ = [], plheight=8, plwidth=8)
+
+    coil_results = diffprof(coilpath, procno=1, mass=1, xmin=xmin, xmax=xmax, probe='diff50', GPZ = [], plheight=8, plwidth=8)
+    plt.close() 
+
+    pos = np.arange(xmin,xmax,0.05)
+    df = pd.DataFrame(pos, columns=["Normalized Position"])
+
+    x_coil = coil_results['x_mm']
+    y_coil = coil_results['spectrum']
+    y_coil /= max(y_coil)
+    xbkg,ybkg = interpolate_y_values(x_coil, y_coil, (xmin,xmax), len(pos))
+    ybkg /= max(ybkg)
+
+    x = results['x_mm']
+    y = results['spectrum']
+
+    TD_2 = results['TD2']
+    xx = [xxx*(2*60)+15 for xxx in range(int(TD_2))]
+    if xx[-1]>=7200:
+        xx = [xxx/3600 for xxx in xx]
+        xlabeltext = "Uptake Time (h)"
+    else:
+        xlabeltext = "Uptake Time (s)"
+
+    idx = range(int(TD_2))
+
+    fig,ax=plt.subplots()
+    fig1,ax1=plt.subplots()
+    cnt=0
+    idxcnt=0
+    mareas=[]
+    bareas=[]
+    ymax = np.max(y)
+
+    for yn in y:
+        if cnt>=results['TD2']:
+            break
+        xn,ynn = interpolate_y_values(x, yn, (xmin,xmax), len(pos))
+        newx = xn
+        ynn /= ybkg
+
+        ynn /= ymax
+
+        if cnt == 1:
+            hn = ax.plot(newx,ynn, color='b', zorder = 1000-cnt, linewidth=3)
+        elif cnt == idx[cnt]:
+            hn = ax.plot(newx,ynn, 'k', zorder = 1000-cnt, linewidth=2)
+
+        df.insert(cnt+1,"Time = "+str(xx[idx[cnt]])+" h",ynn,True)
+        cnt+=1
+
+    labeltext = 'z-position / mm'
+    frame = True
+    ax.set_xlabel(labeltext)
+    ax.spines['top'].set_visible(frame)
+    ax.spines['right'].set_visible(frame)
+    ax.spines['left'].set_visible(frame)
+    ax.set_xlim(xmin,xmax)
+
+    fig.set_figheight(8)
+    fig.set_figwidth(8)
+    
+    return df
+
+def prof_T2_Fit(y, exp_params, expT2 = [0.005174], expD = [1.00416e-9], stretch = False, varyD = False, annotation = True, start_val=0):
+    
+    L = exp_params["L"]
+    CNST = exp_params["CNST"]
+    L1 = int(L[1])
+    L2 = int(L[2])
+    delta = int(L[18])/1e6
+    CNST31 = int(CNST[31])
+    TD2 = int(exp_params["TD_2"])
+    G = float(exp_params["G"])  # T/m
+
+    nucgamma = find_gamma(exp_params["nuclide"])
+    gamma = nucgamma['gamma']
+    echo_delay = np.arange((2*L1/CNST31),(2*((L1)/CNST31+(L2*(TD2))/CNST31)),2*L2/CNST31) # echo delay [s]
+    echo_delay = np.array(echo_delay[start_val:TD2])
+    echo_delay_interp = np.linspace(0, echo_delay[-1],100)
+
+    if hasattr(y, 'name'):
+        colname = "\u03B4: "+y.name+" ppm"
+    else:
+        print(y.columns)
+        colname = f'Integrated Region: \n'+str(y.columns[0])
+
+    y = y.values.flatten()
+    y = y[start_val:TD2]
+
+    if expT2 == [0.005174]:
+        expT2 = [0.5*max(echo_delay)]
+
+    if not isinstance(expT2, list):
+        expT2 = [expT2]
+
+    if not isinstance(stretch, bool):
+        stretch = [False] * len(expT2)
+    if not isinstance(stretch, list):
+        stretch = [stretch]
+    if len(stretch) != len(expT2):
+        stretch = [False] * len(expT2)
+        display("Warning: stretch parameter is not the same length as expT2. Using default stretch = False for all parameters.")
+
+    if not isinstance(varyD, bool):
+        varyD = [False] * len(expT2)
+    if not isinstance(varyD, list):
+        varyD = [varyD]
+    if len(varyD) != len(expT2):
+        varyD = [False] * len(expT2)
+        display("Warning: varyD parameter is not the same length as expT2. Using default stretch = False for all parameters.")
+
+    def T2_decay(echo_delay, I, T2, ID, D, beta):
+        B = (delta*G*gamma)**2 * (echo_delay/2 - (4 * delta / 3) + 50e-6) #[s/m^2] # Subtracting one delta extra to correct echo delay to DELTA
+        return I * (np.exp((-1 * np.divide(echo_delay,T2)) ** beta) * np.exp((-1 * np.multiply(D,B)) ** beta)) + ID
+
+    def make_model(num, expT2, expD):
+        pref = "f{0}_".format(num)
+        model = Model(T2_decay, prefix = pref)
+        model.set_param_hint(pref+'T2', value=expT2[num], min=1e-3*expT2[num], max=1e3*expT2[num])
+        model.set_param_hint(pref+'D', value=expD[num], min=expD[num]/5, max=5*expD[num], vary=varyD[num])
+        model.set_param_hint(pref+'I', value=1, min=0.01, max=1.5, vary=True)
+        model.set_param_hint(pref+'ID', value=0.0, min=0.01, max=0.25, vary=True)
+        model.set_param_hint(pref+'beta', value=1, min=0, max=5, vary=stretch[num])
+        return model
+    
+    def Fit_Range(delay, y_interp, dels):
+        y_upper = y_interp + dels
+        y_lower = y_interp - dels
+
+        y_range = np.append(y_upper, y_lower[::-1])
+        x_range = np.append(delay, delay[::-1])
+        return x_range, y_range
+
+    model = None
+    for i in range(len(expT2)):
+        model_now = make_model(i, expT2, expD)
+        if model is None:
+            model = model_now
+        else:
+            model = model + model_now
+
+    out=model.fit(y, echo_delay=echo_delay)
+    rsquared = out.rsquared
+
+    yfine = out.eval(echo_delay=echo_delay_interp)
+    
+    T2s=[]
+    Ds=[]
+    Is=[]
+    IDs=[]
+    betas=[]
+    Ks = []
+    for i in range(len(expT2)):
+        T2s.append(out.params[f'f{i}_T2'].value)
+        Ds.append(out.params[f'f{i}_D'].value)
+        Is.append(out.params[f'f{i}_I'].value)
+        IDs.append(out.params[f'f{i}_ID'].value)
+        betas.append(out.params[f'f{i}_beta'].value)
+        K = out.eval(echo_delay=0)
+        Ks.append(float(K))
+
+    if len(Is) != 1:
+        Is = [II / sum(Is) for II in Is]  # normalize intensities
+    else:
+        Is = Is
+
+    delmodelsmooth = out.eval_uncertainty(echo_delay=echo_delay_interp, sigma=3)
+
+    boxprops = dict(facecolor='white', alpha=0.8, linewidth=0)
+    axtext = [(f"w$_{i+1}$: {Is[i]: .3f}"
+            #   +f"$\,w_D,_{i+1}$ :{IDs[i]: .3f}"
+              +f"\nT2({i+1})$ :{T2s[i]: .3f}"+"\,s$"
+              +f"\nD({i+1})$ :{Ds[i]: .3e}"+"\,m^2s^{-1}$"
+              +f"\n\u03B2$_{i+1}$ :{betas[i]: .3f}") for i in range(len(T2s))]
+    axtext.append(f"$R^2$: {rsquared:.3f} \n"+colname)
+
+    fig,ax = plt.subplots(figsize=(8,8))
+    x_range, y_range = Fit_Range(echo_delay_interp, yfine, delmodelsmooth)
+    ax.plot(echo_delay, y, 'o', color='black', label="Experimental Data",zorder=2)
+    ax.plot(echo_delay_interp, yfine, '--', color='teal', label="Fit",zorder=3)
+    ax.fill(x_range, y_range, '--', color='grey', alpha=0.4, label="uncertainty",zorder=1)
+    ax.set_xlabel('Echo delay / s')
+    ax.set_ylabel('Normalized intensity')
+    ax.set_ylim(0,1.25)
+    
+    if annotation:
+        for i in range(len(axtext)):
+            ax.text(.6, .95-0.225*i, axtext[i], fontsize = 16, backgroundcolor='white', 
+                    bbox=boxprops, ha='left', va='top', transform=ax.transAxes)
+            
+    plt.show()
+    fit_results = {
+        "T2": T2s,
+        "D": Ds,
+        "I": Is,
+        "beta": betas,
+        "r squared": rsquared,
+        "fit_report": out.fit_report(),
+        "echo_delay": echo_delay,
+        "intensities": y,
+        "correction factor": Ks,
+    }
+    return fit_results
 
 def slicesel2d(datapath, procno=1, clevels=6, factor=0.1, xlims=[0,0], ylims=[0,0], contour=True, color=False, yOffset = -0.2, plheight=8, plwidth=8, fontsize=24, probe='diffBB'):
 
@@ -2321,7 +2809,7 @@ def slicesel2d(datapath, procno=1, clevels=6, factor=0.1, xlims=[0,0], ylims=[0,
                 OBS = float(linestr[len(OBSstr):len(linestr)-1])
             if NUCstr in line.decode():
                 linestr = line.decode()
-                NUC = str(linestr[len(NUCstr):len(linestr)-2])
+                NUC = re.search(r'<(.*?)>', linestr).group(1)
             if GPZstr in line.decode():
                 GPZ = []
                 line = next(input)
@@ -2659,6 +3147,68 @@ def interpolate_y_values(x, y, x_range, num=2048):
     # y_interp = np.flip(spl(x_interp))
 
     return x_interp,y_interp
+
+def xrdml_import(pathxrd, plot=False):
+    """results = xrdml_import(path, plot=False)
+    results is a dictionary with keys "2Theta", "Q", "Intensity", and "Wavelength"
+    Imports an XRDML file from a PANalytical X'Pert diffractometer and extracts 2Theta, Q, Intensity, and Wavelength.
+    If plot=True, it will also generate a plot of Intensity vs Q.
+    """
+
+    import xml.etree.ElementTree as ET
+    def clean_string(s):
+        # Remove symbols, spaces, and make lowercase
+        return re.sub(r'[^a-z0-9]', '', s.lower())
+
+    xml_file = pathxrd  # Replace with your actual file path
+
+    # Parse XML and get namespace
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+    namespace_match = re.match(r'\{(.*)\}', root.tag)
+    namespace = namespace_match.group(1) if namespace_match else ''
+    ns = {'xrd': namespace}
+    # ns = {'xrd': 'http://www.xrdml.com/XRDMeasurement/1.3'}
+
+    used_wavelength = root.find('.//xrd:usedWavelength', ns)
+    if used_wavelength is not None:
+        intended_value = used_wavelength.attrib.get('intended')
+        intended_clean = clean_string(intended_value)
+        for child in used_wavelength:
+            tag_clean = clean_string(child.tag.split('}')[1])
+            if tag_clean == intended_clean:
+                num_value = float(child.text)
+                # print(f"Numerical value for intended '{intended_value}': {num_value}")
+
+    # Find dataPoints
+    data_points = root.find('.//xrd:dataPoints', ns)
+
+    # Get start and end positions from <positions axis="2Theta">
+    positions_2theta = root.find('.//xrd:positions[@axis="2Theta"]', ns)
+    if positions_2theta is not None:
+        start_pos = float(positions_2theta.find('xrd:startPosition', ns).text)
+        end_pos = float(positions_2theta.find('xrd:endPosition', ns).text)
+        # print(f"2Theta startPosition: {start_pos}")
+        # print(f"2Theta endPosition: {end_pos}")
+
+        # Example: Get intensities as a list of integers
+        intensities_elem = data_points.find('xrd:intensities', ns)
+        if intensities_elem is not None:
+            intensities = [int(x) for x in intensities_elem.text.strip().split()]
+            # print("Intensities:", intensities[:10], "...")
+
+    x_deg = np.linspace(start_pos, end_pos, len(intensities))
+    x_q = (4 * np.pi / num_value) * np.sin(np.radians(x_deg / 2))
+    y_int = np.array(intensities)
+
+    if plot:
+        fig,ax = plt.subplots(figsize=(8, 8))
+        ax.plot(x_q,y_int, lw=2, color='k')
+        ax.set_xlabel('q / 1/Å')
+        ax.set_ylabel('Intensity / a.u.')
+
+    results = {"2Theta": x_deg, "Q": x_q, "Intensity": y_int, "Wavelength": num_value}
+    return results
 
 def get_color(color):
 
